@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { DateTime } = require("luxon");
+
 const Schema = mongoose.Schema;
 
 const AuthorSchema = new Schema({
@@ -27,10 +27,7 @@ AuthorSchema.virtual("url").get(function () {
   return `/catalog/author/${this._id}`;
 });
 
-// Virtual for a better Date format
-AuthorSchema.virtual("death_date_formatted").get(function () {
-  return this.death_date ? DateTime.fromJSDate(this.death_date).toLocaleString(DateTime.DATE_MED) : null;
-});
+
 
 // Export model
 module.exports = mongoose.model("Author", AuthorSchema);
