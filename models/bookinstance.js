@@ -14,6 +14,11 @@ const BookInstanceSchema = new Schema({
   due_back: { type: Date, default: Date.now },
 });
 
+// Virtual for this bookinstance object's URL.
+BookInstanceSchema.virtual("url").get(function() {
+  // We don't use an arrow function as we'll need the this object
+  return `/catalog/bookinstance/${this._id}`;
+});
 
 // Virtual for a better Date format
 BookInstanceSchema.virtual("due_back_formatted").get(function () {
