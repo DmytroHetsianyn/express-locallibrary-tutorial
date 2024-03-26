@@ -1,6 +1,7 @@
 const BookInstance = require("../models/bookinstance");
 const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
+const Book = require("../models/book");
 
 // Display list of all BookInstances.
 exports.bookinstance_list = asyncHandler(async (req, res, next) => {
@@ -34,91 +35,65 @@ exports.bookinstance_detail = asyncHandler(async (req, res, next) => {
 });
 
 
-// Display book create form on GET.
-exports.book_create_get = asyncHandler(async (req, res, next) => {
-  // Get all authors and genres, which we can use for adding to our book.
-  const [allAuthors, allGenres] = await Promise.all([
-    Author.find().sort({ family_name: 1 }).exec(),
-    Genre.find().sort({ name: 1 }).exec(),
-  ]);
+// Display BookInstance create form on GET.
+exports.bookinstance_create_get = asyncHandler(async (req, res, next) => {
+  const allBooks = await Book.find({}, "title").sort({ title: 1 }).exec();
 
-  res.render("book_form", {
-    title: "Create Book",
-    authors: allAuthors,
-    genres: allGenres,
+  res.render("bookinstance_form", {
+    title: "Create BookInstance",
+    book_list: allBooks,
   });
 });
 
-// Handle book create on POST.
-exports.book_create_post = [
-  // Convert the genre to an array.
-  (req, res, next) => {
-    if (!Array.isArray(req.body.genre)) {
-      req.body.genre =
-        typeof req.body.genre === "undefined" ? [] : [req.body.genre];
-    }
-    next();
-  },
 
+// Handle BookInstance create on POST.
+exports.bookinstance_create_post = [
   // Validate and sanitize fields.
-  body("title", "Title must not be empty.")
+  body("book", "Book must be specified").trim().isLength({ min: 1 }).escape(),
+  body("imprint", "Imprint must be specified")
     .trim()
     .isLength({ min: 1 })
     .escape(),
-  body("author", "Author must not be empty.")
-    .trim()
-    .isLength({ min: 1 })
-    .escape(),
-  body("summary", "Summary must not be empty.")
-    .trim()
-    .isLength({ min: 1 })
-    .escape(),
-  body("isbn", "ISBN must not be empty").trim().isLength({ min: 1 }).escape(),
-  body("genre.*").escape(),
-  // Process request after validation and sanitization.
+  body("status").escape(),
+  body("due_back", "Invalid date")
+    .optional({ values: "falsy" })
+    .isISO8601()
+    .toDate(),
 
+  // Process request after validation and sanitization.
   asyncHandler(async (req, res, next) => {
     // Extract the validation errors from a request.
     const errors = validationResult(req);
 
-    // Create a Book object with escaped and trimmed data.
-    const book = new Book({
-      title: req.body.title,
-      author: req.body.author,
-      summary: req.body.summary,
-      isbn: req.body.isbn,
-      genre: req.body.genre,
+    // Create a BookInstance object with escaped and trimmed data.
+    const bookInstance = new BookInstance({
+      book: req.body.book,
+      imprint: req.body.imprint,
+      status: req.body.status,
+      due_back: req.body.due_back,
     });
 
     if (!errors.isEmpty()) {
-      // There are errors. Render form again with sanitized values/error messages.
+      // There are errors.
+      // Render form again with sanitized values and error messages.
+      const allBooks = await Book.find({}, "title").sort({ title: 1 }).exec();
 
-      // Get all authors and genres for form.
-      const [allAuthors, allGenres] = await Promise.all([
-        Author.find().sort({ family_name: 1 }).exec(),
-        Genre.find().sort({ name: 1 }).exec(),
-      ]);
-
-      // Mark our selected genres as checked.
-      for (const genre of allGenres) {
-        if (book.genre.includes(genre._id)) {
-          genre.checked = "true";
-        }
-      }
-      res.render("book_form", {
-        title: "Create Book",
-        authors: allAuthors,
-        genres: allGenres,
-        book: book,
+      res.render("bookinstance_form", {
+        title: "Create BookInstance",
+        book_list: allBooks,
+        selected_book: bookInstance.book._id,
         errors: errors.array(),
+        bookinstance: bookInstance,
       });
+      return;
     } else {
-      // Data from form is valid. Save book.
-      await book.save();
-      res.redirect(book.url);
+      // Data from form is valid
+      await bookInstance.save();
+      res.redirect(bookInstance.url);
     }
   }),
 ];
+
 
 
 
